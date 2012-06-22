@@ -4,6 +4,7 @@ import cgi
 import urllib
 import urllib2
 import datetime
+import logging
 
 from google.appengine.ext import webapp
 from google.appengine.ext.webapp.util import run_wsgi_app
@@ -31,6 +32,7 @@ def write_web_header(self):
 	Don't write the appkey
 	"""
 	self.response.out.write(head)
+	self.response.out.write(meta)	# Enable this in order to publish the app, or it wont work.Unfortunate but necessary
 	self.response.out.write(body)
 
 def end_html(self):
@@ -127,25 +129,31 @@ class MainPage(webapp.RequestHandler):
 						user.mobile = sender
 						user.put()
 						self.response.out.write('You have registered successfully, %s'%(username))
+						self.response.out.write(' To send messages to this group, just send @coffeekatta Your_message to the same number')
 				except IndexError:
 					self.response.out.write("You need to enter a username also,Saar")
 			else:
 					users = Users.gql("")
 					mobile_list = get_mobile()
 					is_allowed=False
-					for mobile in mobile_list:
-						if(sender in mobile):
+> 				this_sender=""
+> 				for user in users:
+> 					if (sender in user.mobile):
 							is_allowed=True
+> 						this_sender=user.username
 							break
-					if(not is_allowed):
-						self.response.out.write("Message bhejna manaa hai, Saar")
-					else:
-						htmlresponse = head + meta + body + message + end
+					if is_allowed:
+ 						htmlresponse = head + meta + body + this_sender+": " + message + end
 						for user in users:
 							form_fields = {"txtweb-mobile":user.mobile, "txtweb-message":htmlresponse, "txtweb-pubkey":pubkey}
 							form_data = urllib.urlencode(form_fields)
 							result = urlfetch.fetch(url="http://api.txtweb.com/v1/push",payload=form_data,method=urlfetch.POST)
+> 						if(not ("success" in result.content)):
+> 							logging.info(user.username)
+> 							logging.info(result.content)
 						self.response.out.write("Bhej diya, Saar ")
+					else:
+						self.response.out.write("Message bhejna manaa hai, Saar")
 		else:
 			write_web_header(self)
 			self.response.out.write('Nahi Chalega, Saar')
